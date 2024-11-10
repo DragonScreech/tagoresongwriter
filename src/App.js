@@ -246,6 +246,18 @@ const App = () => {
         <button onClick={addRest}>Rest (Duration: {beatLength})</button>
       </div>
       <div>
+        <h2>Entered Notes:</h2>
+        <ul>
+          {notes.map((note, index) => (
+            <li key={index}>
+              {note.isRest
+                ? `Rest - Duration: ${note.duration}`
+                : `${note.note}${note.octave} - Duration: ${note.duration}`}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
         <button onClick={downloadMusicXML}>Download as MusicXML</button>
       </div>
     </div>
