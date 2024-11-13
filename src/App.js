@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { useSwipeable } from 'react-swipeable';
 
 const App = () => {
   const [notes, setNotes] = useState([]);
   const [composer, setComposer] = useState('Unknown Composer');
   const [title, setTitle] = useState('');
-  const [octave, setOctave] = useState(4);
   const [beatLength, setBeatLength] = useState(1);
   const [keySignature, setKeySignature] = useState(0);
   const [timeNumerator, setTimeNumerator] = useState(4);
   const [timeDenominator, setTimeDenominator] = useState(4);
+  const [octaves, setOctaves] = useState({});
 
   const keyOptions = [
     { label: 'C major / A minor', value: 0 },
@@ -26,27 +25,51 @@ const App = () => {
     { label: 'F major / D minor', value: -1 },
   ];
 
-  const naturalNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-  const sharpNotes = ['C#', 'D#', 'F#', 'G#', 'A#'];
-  const flatNotes = ['Db', 'Eb', 'Gb', 'Ab', 'Bb'];
+  const naturalNotes = [
+    { western: 'C', sargam: 'Sa' },
+    { western: 'D', sargam: 'Re' },
+    { western: 'E', sargam: 'Ga' },
+    { western: 'F', sargam: 'Ma' },
+    { western: 'G', sargam: 'Pa' },
+    { western: 'A', sargam: 'Dha' },
+    { western: 'B', sargam: 'Ni' },
+  ];
 
-  const handlers = useSwipeable({
-    onSwipedUp: () => setOctave((prev) => Math.min(prev + 1, 5)),
-    onSwipedDown: () => setOctave((prev) => Math.max(prev - 1, 3)),
-    swipeDuration: 500,
-    preventScrollOnSwipe: true,
-    trackMouse: true,
-  });
+  const sharpNotes = [
+    { western: 'C#', sargam: 'Sa#' },
+    { western: 'D#', sargam: 'Re#' },
+    { western: 'F#', sargam: 'Ma#' },
+    { western: 'G#', sargam: 'Pa#' },
+    { western: 'A#', sargam: 'Dha#' },
+  ];
 
-  const addNote = (note) => {
-    const selectedOctave = octave || 4;
+  const flatNotes = [
+    { western: 'Db', sargam: 'Re♭' },
+    { western: 'Eb', sargam: 'Ga♭' },
+    { western: 'Gb', sargam: 'Pa♭' },
+    { western: 'Ab', sargam: 'Dha♭' },
+    { western: 'Bb', sargam: 'Ni♭' },
+  ];
+
+  const addNote = (note, octave) => {
     const selectedBeatLength = beatLength || 1;
-    setNotes([...notes, { note, octave: selectedOctave, duration: selectedBeatLength, isRest: false }]);
+    setNotes([...notes, { note, octave, duration: selectedBeatLength, isRest: false }]);
   };
 
   const addRest = () => {
     const selectedBeatLength = beatLength || 1;
     setNotes([...notes, { duration: selectedBeatLength, isRest: true }]);
+  };
+
+  const changeOctave = (note, delta) => {
+    setOctaves((prevOctaves) => {
+      const newOctave = Math.max(1, (prevOctaves[note] || 4) + delta);
+      return { ...prevOctaves, [note]: newOctave };
+    });
+  };
+
+  const undoLastNote = () => {
+    setNotes((prevNotes) => prevNotes.slice(0, -1));
   };
 
   const handleBeatChange = (newValue) => {
@@ -192,73 +215,123 @@ const App = () => {
     URL.revokeObjectURL(url);
   };
 
+
   return (
-    <div {...handlers}>
-      <h1>Note Composer</h1>
-      <div>
-        <label>Title:
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
-      </div>
-      <div>
-        <label>Composer:
-          <input type="text" value={composer} onChange={(e) => setComposer(e.target.value)} />
-        </label>
-      </div>
-      <div>
-        <label>Key Signature:
-          <select value={keySignature} onChange={(e) => setKeySignature(parseInt(e.target.value, 10))}>
-            {keyOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div>
-        <label>Time Signature:
-          <input type="number" min="1" value={timeNumerator} onChange={(e) => setTimeNumerator(parseInt(e.target.value, 10))} />
-          /
-          <input type="number" min="1" value={timeDenominator} onChange={(e) => setTimeDenominator(parseInt(e.target.value, 10))} />
-        </label>
-      </div>
-      <div>
-        <label>Beat Length:</label>
-        <button onClick={() => handleBeatChange(beatLength - 0.5)}>-</button>
-        <input type="number" step="0.5" min="0.5" value={beatLength} onChange={(e) => handleBeatChange(e.target.value)} />
-        <button onClick={() => handleBeatChange(beatLength + 0.5)}>+</button>
-      </div>
-      <div>
-        <div>
-          {sharpNotes.map((note) => (
-            <button key={note} onClick={() => addNote(note)}>{note} (Octave {octave})</button>
+    <div className="flex h-screen bg-gray-100 text-gray-800">
+      <div className="flex-1 p-8">
+        <h1 className="text-3xl font-bold mb-4">Note Composer</h1>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <label className="flex flex-col">
+            <span className="font-semibold">Title</span>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="border rounded px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col">
+            <span className="font-semibold">Composer</span>
+            <input
+              type="text"
+              value={composer}
+              onChange={(e) => setComposer(e.target.value)}
+              className="border rounded px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col">
+            <span className="font-semibold">Key Signature</span>
+            <select
+              value={keySignature}
+              onChange={(e) => setKeySignature(parseInt(e.target.value, 10))}
+              className="border rounded px-2 py-1"
+            >
+              {keyOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-center space-x-2">
+            <span className="font-semibold">Time Signature:</span>
+            <input
+              type="number"
+              min="1"
+              value={timeNumerator}
+              onChange={(e) => setTimeNumerator(parseInt(e.target.value, 10))}
+              className="border rounded w-12 text-center"
+            />
+            <span>/</span>
+            <input
+              type="number"
+              min="1"
+              value={timeDenominator}
+              onChange={(e) => setTimeDenominator(parseInt(e.target.value, 10))}
+              className="border rounded w-12 text-center"
+            />
+          </div>
+        </div>
+        <div className="mb-6">
+          <span className="font-semibold">Beat Length:</span>
+          <div className="inline-flex ml-2 items-center">
+            <button onClick={() => handleBeatChange(beatLength - 0.5)} className="px-2 py-1 bg-gray-200 rounded">-</button>
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              value={beatLength}
+              onChange={(e) => handleBeatChange(e.target.value)}
+              className="border rounded w-16 text-center mx-2"
+            />
+            <button onClick={() => handleBeatChange(beatLength + 0.5)} className="px-2 py-1 bg-gray-200 rounded">+</button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          {[sharpNotes, naturalNotes, flatNotes].map((noteSet, idx) => (
+            <div key={idx} className="flex flex-wrap gap-2">
+              {noteSet.map(({ western, sargam }) => (
+                <div key={western} className="flex flex-col items-center">
+                  <button
+                    onClick={() => addNote(western, octaves[western] || 4)}
+                    className="bg-blue-500 text-white px-3 py-1 rounded-md"
+                  >
+                    {sargam} (Octave {octaves[western] || 4})
+                  </button>
+                  <div className="flex space-x-1 mt-1">
+                    <button onClick={() => changeOctave(western, -1)} className="text-sm bg-gray-300 px-2 rounded">-</button>
+                    <button onClick={() => changeOctave(western, 1)} className="text-sm bg-gray-300 px-2 rounded">+</button>
+                  </div>
+                </div>
+              ))}
+            </div>
           ))}
         </div>
-        <div>
-          {naturalNotes.map((note) => (
-            <button key={note} onClick={() => addNote(note)}>{note} (Octave {octave})</button>
-          ))}
-        </div>
-        <div>
-          {flatNotes.map((note) => (
-            <button key={note} onClick={() => addNote(note)}>{note} (Octave {octave})</button>
-          ))}
-        </div>
-        <button onClick={addRest}>Rest (Duration: {beatLength})</button>
+
+        <button onClick={addRest} className="mt-4 bg-yellow-500 text-white px-4 py-2 rounded-md">
+          Add Rest (Duration: {beatLength})
+        </button>
+        <button onClick={undoLastNote} disabled={notes.length === 0} className="mt-4 ml-2 bg-red-500 text-white px-4 py-2 rounded-md">
+          Undo Last Note
+        </button>
+
+        <button onClick={downloadMusicXML} className="mt-4 ml-2 bg-green-500 text-white px-4 py-2 rounded-md">
+          Download as MusicXML
+        </button>
       </div>
-      <div>
-        <h2>Entered Notes:</h2>
-        <ul>
+
+      <div className="w-1/4 bg-white shadow-lg border-l p-6">
+        <h2 className="text-xl font-semibold mb-4">Entered Notes</h2>
+        <ul className="space-y-2">
           {notes.map((note, index) => (
-            <li key={index}>
+            <li key={index} className="border-b pb-2">
               {note.isRest
                 ? `Rest - Duration: ${note.duration}`
                 : `${note.note}${note.octave} - Duration: ${note.duration}`}
             </li>
           ))}
         </ul>
-      </div>
-      <div>
-        <button onClick={downloadMusicXML}>Download as MusicXML</button>
       </div>
     </div>
   );
