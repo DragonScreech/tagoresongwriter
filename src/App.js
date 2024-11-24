@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const App = () => {
   const [notes, setNotes] = useState([]);
@@ -9,6 +9,11 @@ const App = () => {
   const [timeNumerator, setTimeNumerator] = useState(4);
   const [timeDenominator, setTimeDenominator] = useState(4);
   const [octaves, setOctaves] = useState({});
+  const [isGraceNote, setIsGraceNote] = useState(false);
+  const [pickupDuration, setPickupDuration] = useState(0);
+  const [notesVisual, setNotesVisual] = useState('')
+  const [unfinishedEighthNotePair, setUnfinishedEighthNotePair] = useState()
+
 
   const keyOptions = [
     { label: 'C major / A minor', value: 0 },
@@ -51,9 +56,83 @@ const App = () => {
     { western: 'Bb', sargam: 'Ni♭' },
   ];
 
+  const generateCustomNotation = () => {
+    let result = '';
+    let unfinshedPair = false
+    notes.forEach((noteObj, index) => {
+      const { note, octave, duration, isRest, isGraceNote } = noteObj;
+      if (true) {
+        if (isRest) {
+          if (duration == 1) {
+            result += "𝄽 "
+          }
+          if (duration == 0.5) {
+            result += "𝄾 "
+          }
+          if (duration > 1) {
+            for (let index = 0; index < duration; index++) {
+              result += "𝄽 "
+
+            }
+          }
+        }
+        else if (isGraceNote) {
+          if (note.startsWith("A")) {
+            result += "ᴬ"
+          } if (note.startsWith("B")) {
+            result += "ᴮ"
+          } if (note.startsWith("C")) {
+            result += "ꟲ"
+          } if (note.startsWith("D")) {
+            result += "ᴰ"
+          } if (note.startsWith("E")) {
+            result += "ᴱ"
+          } if (note.startsWith("F")) {
+            result += "ꟳ"
+          } if (note.startsWith("G")) {
+            result += "ᴳ"
+          }
+        }
+        else if (duration == 1) {
+          result += `${note}${octave} `
+        }
+        else if (duration == 0.5 && !index == 0 && notes[index - 1] && notes[index - 1].duration == 0.5 && !notes[index - 1].handled) {
+          result += `${notes[index - 1].note}${notes[index - 1].octave}◡${note}${octave} `
+          notes[index].handled = true
+          notes[index - 1].handled = true
+          unfinshedPair = false
+        }
+        else if (duration == 0.5) {
+          unfinshedPair = true
+        }
+        else if (duration > 1) {
+          result += `${note}${octave} `
+          for (let index = 0; index < duration - 1; index++) {
+            result += "- "
+
+          }
+        }
+      }
+    });
+    setUnfinishedEighthNotePair(unfinshedPair)
+    notes.forEach((noteObj, index) => {
+      if (notes[index].handled) {
+        notes[index].handled = false
+      }
+    })
+    return result;
+  };
+
+  useEffect(() => {
+    const notesText = generateCustomNotation()
+    setNotesVisual(notesText)
+  }, [notes])
+
   const addNote = (note, octave) => {
     const selectedBeatLength = beatLength || 1;
-    setNotes([...notes, { note, octave, duration: selectedBeatLength, isRest: false }]);
+    const duration = isGraceNote ? 0.5 : selectedBeatLength; // Grace notes have zero duration in terms of beat count
+    setNotes([...notes, { note, octave, duration, isRest: false, isGraceNote }]);
+    console.log(notes)
   };
 
   const addRest = () => {
@@ -76,15 +155,6 @@ const App = () => {
     if (newValue >= 0.5) {
       setBeatLength(parseFloat(newValue));
     }
-  };
-
-  const getNoteTypeAndDots = (duration) => {
-    if (duration === 0.5) return { type: 'eighth', dots: 0 };
-    if (duration === 1) return { type: 'quarter', dots: 0 };
-    if (duration === 2) return { type: 'half', dots: 0 };
-    if (duration === 3) return { type: 'half', dots: 1 };
-    if (duration === 4) return { type: 'whole', dots: 0 };
-    return { type: 'whole', dots: 0 };
   };
 
   const generateMusicXML = () => {
@@ -118,76 +188,76 @@ const App = () => {
     let measureNumber = 1;
     let notesInMeasure = 0;
     let measureNotes = '';
+    const pickupMeasure = pickupDuration > 0;
 
     notes.forEach((noteObj, index) => {
-      let { note, octave, duration, isRest } = noteObj;
+      let { note, octave, duration, isRest, isGraceNote } = noteObj;
+      const remainingBeatsInMeasure = pickupMeasure && measureNumber === 1 ? pickupDuration : timeNumerator;
 
+      // Always include grace notes, even if duration is 0
+      if (isGraceNote) {
+        let noteXML = `<note>\n<grace slash="yes"/>\n`;
+        if (!isRest) {
+          noteXML += `<pitch>
+          <step>${note.charAt(0)}</step>
+          <alter>${note.includes('#') ? 1 : note.includes('b') ? -1 : 0}</alter>
+          <octave>${octave}</octave>
+        </pitch>\n`;
+        } else {
+          noteXML += `<rest/>\n`;
+        }
+        noteXML += `<type>eighth</type>\n</note>\n`; // Grace notes often default to eighth notes
+        measureNotes += noteXML;
+        return; // Skip further processing for this note
+      }
+
+      // Process regular or rest notes
       while (duration > 0) {
-        const remainingBeatsInMeasure = timeNumerator - notesInMeasure;
-        const currentDuration = Math.min(duration, remainingBeatsInMeasure);
-
-        const { type, dots } = getNoteTypeAndDots(currentDuration);
-
-        let noteXML = `<note>`;
+        const currentDuration = Math.min(duration, remainingBeatsInMeasure - notesInMeasure);
+        let noteXML = `<note>\n`;
 
         if (isRest) {
-          noteXML += `<rest/>`;
+          noteXML += `<rest/>\n`;
+          noteXML += `<duration>${currentDuration}</duration>\n`;
+          noteXML += `<type>${currentDuration === 1 ? 'quarter' : 'half'}</type>\n`;
         } else {
           noteXML += `<pitch>
-    <step>${note.charAt(0)}</step>
-    <alter>${note.includes('#') ? 1 : note.includes('b') ? -1 : 0}</alter>
-    <octave>${octave}</octave>
-  </pitch>`;
+          <step>${note.charAt(0)}</step>
+          <alter>${note.includes('#') ? 1 : note.includes('b') ? -1 : 0}</alter>
+          <octave>${octave}</octave>
+        </pitch>\n`;
+          noteXML += `<duration>${currentDuration}</duration>\n`;
+          noteXML += `<type>${currentDuration === 1 ? 'quarter' : currentDuration == 0.5 ? 'eighth' : 'half'}</type>\n`;
         }
 
-        noteXML += `<duration>${currentDuration}</duration>
-  <type>${type}</type>`;
-
-        if (dots > 0) {
-          noteXML += `<dot/>`;
-        }
-
-        if (!isRest && duration > currentDuration) {
-          noteXML += `
-  <notations>
-    <tied type="start"/>
-  </notations>`;
-        }
-
-        if (!isRest && duration < noteObj.duration && currentDuration === duration) {
-          noteXML += `
-  <notations>
-    <tied type="stop"/>
-  </notations>`;
-        }
-
-        noteXML += `</note>`;
+        noteXML += `</note>\n`;
         measureNotes += noteXML;
-        notesInMeasure += currentDuration / (4 / timeDenominator);
+        notesInMeasure += currentDuration;
         duration -= currentDuration;
 
-        if (notesInMeasure >= timeNumerator || (index === notes.length - 1 && duration <= 0)) {
+        // Handle measure overflow
+        if (notesInMeasure >= remainingBeatsInMeasure || (index === notes.length - 1 && duration <= 0)) {
           const attributes = measureNumber === 1 ? `
-    <attributes>
-      <divisions>1</divisions>
-      <key>
-        <fifths>${keySignature}</fifths>
-      </key>
-      <time>
-        <beats>${timeNumerator}</beats>
-        <beat-type>${timeDenominator}</beat-type>
-      </time>
-      <clef>
-        <sign>G</sign>
-        <line>2</line>
-      </clef>
-    </attributes>` : '';
+          <attributes>
+            <divisions>1</divisions>
+            <key>
+              <fifths>${keySignature}</fifths>
+            </key>
+            <time>
+              <beats>${timeNumerator}</beats>
+              <beat-type>${timeDenominator}</beat-type>
+            </time>
+            <clef>
+              <sign>G</sign>
+              <line>2</line>
+            </clef>
+          </attributes>` : '';
 
           measures.push(`
-  <measure number="${measureNumber}">
-    ${attributes}
-    ${measureNotes}
-  </measure>`);
+          <measure number="${measureNumber}">
+            ${attributes}
+            ${measureNotes}
+          </measure>`);
           measureNumber++;
           notesInMeasure = 0;
           measureNotes = '';
@@ -198,7 +268,6 @@ const App = () => {
     const footer = `
     </part>
 </score-partwise>`;
-
     return `${header}\n${measures.join('\n')}\n${footer}`;
   };
 
@@ -214,7 +283,6 @@ const App = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
-
 
   return (
     <div className="flex h-screen bg-gray-100 text-gray-800">
@@ -272,6 +340,27 @@ const App = () => {
             />
           </div>
         </div>
+
+        <label className="flex items-center space-x-2 mb-4">
+          <input
+            type="checkbox"
+            checked={isGraceNote}
+            onChange={(e) => setIsGraceNote(e.target.checked)}
+          />
+          <span className="font-semibold">Grace Note Mode</span>
+        </label>
+
+        <label className="flex flex-col mb-4">
+          <span className="font-semibold">Pickup Measure Duration (beats)</span>
+          <input
+            type="number"
+            min="0"
+            value={pickupDuration}
+            onChange={(e) => setPickupDuration(parseFloat(e.target.value))}
+            className="border rounded px-2 py-1 w-24"
+          />
+        </label>
+
         <div className="mb-6">
           <span className="font-semibold">Beat Length:</span>
           <div className="inline-flex ml-2 items-center">
@@ -321,17 +410,14 @@ const App = () => {
         </button>
       </div>
 
-      <div className="w-1/4 bg-white shadow-lg border-l p-6">
-        <h2 className="text-xl font-semibold mb-4">Entered Notes</h2>
-        <ul className="space-y-2">
-          {notes.map((note, index) => (
-            <li key={index} className="border-b pb-2">
-              {note.isRest
-                ? `Rest - Duration: ${note.duration}`
-                : `${note.note}${note.octave} - Duration: ${note.duration}`}
-            </li>
-          ))}
-        </ul>
+      <div className="w-1/4 bg-white shadow-lg border-l p-6 flex flex-col justify-between">
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Entered Notes</h2>
+          <p>{notesVisual}</p>
+        </div>
+        {unfinishedEighthNotePair && <div className='bg-red-500 rounded p-2'>
+          <p className='text-white'>Unfinished Eight Note Pair</p>
+        </div>}
       </div>
     </div>
   );
