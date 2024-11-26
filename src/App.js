@@ -57,22 +57,32 @@ const App = () => {
   ];
 
   const generateCustomNotation = () => {
-    let result = '';
+    let result = '| ';
     let unfinshedPair = false
+    let measureBeat = 0
     notes.forEach((noteObj, index) => {
-      const { note, octave, duration, isRest, isGraceNote } = noteObj;
+      const { note, octave, duration, isRest, isGraceNote, beat } = noteObj;
+
       if (true) {
         if (isRest) {
           if (duration == 1) {
+            if (measureBeat % 4 == 0) {
+              result += "| "
+            }
             result += "𝄽 "
+            measureBeat += 1
           }
           if (duration == 0.5) {
             result += "𝄾 "
+            measureBeat += 0.5
           }
           if (duration > 1) {
             for (let index = 0; index < duration; index++) {
+              if (measureBeat % 4 == 0) {
+                result += "| "
+              }
               result += "𝄽 "
-
+              measureBeat += 1
             }
           }
         }
@@ -94,21 +104,37 @@ const App = () => {
           }
         }
         else if (duration == 1) {
+          if (measureBeat % 4 == 0 && measureBeat !== 0) {
+            result += "| "
+          }
           result += `${note}${octave} `
+          measureBeat += 1
         }
         else if (duration == 0.5 && !index == 0 && notes[index - 1] && notes[index - 1].duration == 0.5 && !notes[index - 1].handled) {
+          if (measureBeat % 4 == 0 && measureBeat !== 0) {
+            result += "| "
+          }
           result += `${notes[index - 1].note}${notes[index - 1].octave}◡${note}${octave} `
           notes[index].handled = true
           notes[index - 1].handled = true
           unfinshedPair = false
+          measureBeat += 1
         }
         else if (duration == 0.5) {
           unfinshedPair = true
         }
         else if (duration > 1) {
+          if (measureBeat % 4 == 0 && measureBeat !== 0) {
+            result += "| "
+          }
           result += `${note}${octave} `
+          measureBeat += 1
           for (let index = 0; index < duration - 1; index++) {
+            if (measureBeat % 4 == 0) {
+              result += "| "
+            }
             result += "- "
+            measureBeat += 1
 
           }
         }
@@ -131,7 +157,13 @@ const App = () => {
   const addNote = (note, octave) => {
     const selectedBeatLength = beatLength || 1;
     const duration = isGraceNote ? 0.5 : selectedBeatLength; // Grace notes have zero duration in terms of beat count
-    setNotes([...notes, { note, octave, duration, isRest: false, isGraceNote }]);
+    if (notes.length != 0) {
+      setNotes([...notes, { note, octave, duration, isRest: false, isGraceNote, beat: notes[notes.length - 1].beat + duration }]);
+    }
+    else {
+      setNotes([...notes, { note, octave, duration, isRest: false, isGraceNote, beat: duration }]);
+    }
+
     console.log(notes)
   };
 
