@@ -66,7 +66,7 @@ const App = () => {
       if (true) {
         if (isRest) {
           if (duration == 1) {
-            if (measureBeat % 4 == 0) {
+            if (measureBeat % timeNumerator == 0) {
               result += "| "
             }
             result += "𝄽 "
@@ -78,7 +78,7 @@ const App = () => {
           }
           if (duration > 1) {
             for (let index = 0; index < duration; index++) {
-              if (measureBeat % 4 == 0) {
+              if (measureBeat % timeNumerator == 0) {
                 result += "| "
               }
               result += "𝄽 "
@@ -104,14 +104,14 @@ const App = () => {
           }
         }
         else if (duration == 1) {
-          if (measureBeat % 4 == 0 && measureBeat !== 0) {
+          if (measureBeat % timeNumerator == 0 && measureBeat !== 0) {
             result += "| "
           }
           result += `${note}${octave} `
           measureBeat += 1
         }
         else if (duration == 0.5 && !index == 0 && notes[index - 1] && notes[index - 1].duration == 0.5 && !notes[index - 1].handled) {
-          if (measureBeat % 4 == 0 && measureBeat !== 0) {
+          if (measureBeat % timeNumerator == 0 && measureBeat !== 0) {
             result += "| "
           }
           result += `${notes[index - 1].note}${notes[index - 1].octave}◡${note}${octave} `
@@ -124,13 +124,13 @@ const App = () => {
           unfinshedPair = true
         }
         else if (duration > 1) {
-          if (measureBeat % 4 == 0 && measureBeat !== 0) {
+          if (measureBeat % timeNumerator == 0 && measureBeat !== 0) {
             result += "| "
           }
           result += `${note}${octave} `
           measureBeat += 1
           for (let index = 0; index < duration - 1; index++) {
-            if (measureBeat % 4 == 0) {
+            if (measureBeat % timeNumerator == 0) {
               result += "| "
             }
             result += "- "
